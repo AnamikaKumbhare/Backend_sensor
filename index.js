@@ -1,8 +1,15 @@
-
 const express = require("express");
+const http = require('http');
+const WebSocket = require('ws');
+const gasDetectionRoute = require('./controllers/gas_detection');
+const webSocketServer = require('./hooks/useWebSocket');
+
 const app = express();
-const gasDetectionRoute = require('./controllers/gas_detection'); // Adjust path if in a different directory
+const server = http.createServer(app);
 const PORT = 3001;
+
+// Initialize WebSocket server
+webSocketServer.initialize(server);
 
 // Add body-parser middleware with increased size limit
 app.use(express.json({ limit: '10mb' }));
@@ -24,7 +31,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Gas detection route
+// Use the gas detection route
 app.use('/api', gasDetectionRoute);
 
 // Handle preflight requests
@@ -36,7 +43,8 @@ app.options('/api/gas_detection', (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
-    console.log(`Server running on http://192.168.56.1:${PORT}`);
+server.listen(PORT, () => {
+    console.log(`HTTP Server running on http://192.168.56.1:${PORT}`);
+    console.log(`WebSocket Server running on ws://192.168.56.1:${PORT}`);
     console.log("API endpoint: http://192.168.56.1:3001/api/gas_detection");
 });
