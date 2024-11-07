@@ -1,0 +1,125 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+
+// Network credentials
+const char* ssid = "Redmi note 8 pro";
+const char* password = "123456789";
+
+// Server details - use IP address instead of hostname
+const char* serverName = "http://192.168.34.62:3001/gas-detection";
+
+// Sensor constants
+#define RLOAD 10.0
+#define BASELINE_READING 200.0
+#define VOLTAGE_REFERENCE 3.3
+#define ADC_RESOLUTION 1023.0
+
+// Function declarations
+void connectToWiFi();
+void sendSensorData(float rs_ro_ratio, float ppm);
+void printWiFiStatus();
+
+void setup() {
+    Serial.begin(9600);  // Increased baud rate for better debugging
+    delay(1000);  // Give serial connection time to establish
+    
+    Serial.println("\nStarting Gas Sensor System");
+    connectToWiFi();
+}
+
+void loop() {
+    // Read and calculate sensor values
+    int sensorValue = analogRead(A0);
+    float voltage = sensorValue * (VOLTAGE_REFERENCE / ADC_RESOLUTION);
+    
+    // Calculate RS/R0 ratio
+    float rs_ro_ratio = (VOLTAGE_REFERENCE - voltage) * RLOAD / (voltage * BASELINE_READING);
+    
+    // Calculate PPM (using your formula)
+    float ppm = pow(10, (rs_ro_ratio - 0.5));
+    
+    // Print sensor readings
+    Serial.println("\n--- Sensor Readings ---");
+    Serial.printf("Raw ADC: %d\n", sensorValue);
+    Serial.printf("Voltage: %.2fV\n", voltage);
+    Serial.printf("RS/R0 Ratio: %.2f\n", rs_ro_ratio);
+    Serial.printf("Estimated PPM: %.2f\n", ppm);
+    
+    // Check WiFi and reconnect if necessary
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi connection lost. Reconnecting...");
+        connectToWiFi();
+    }
+    
+    // Send data to server
+    sendSensorData(rs_ro_ratio, ppm);
+    
+    delay(30000);  // 30 second delay between readings
+}
+
+void connectToWiFi() {
+    Serial.printf("\nConnecting to %s ", ssid);
+    
+    WiFi.mode(WIFI_STA);  // Set WiFi to station mode
+    WiFi.begin(ssid, password);
+    
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+        delay(500);
+        Serial.print(".");
+        attempts++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        printWiFiStatus();
+    } else {
+        Serial.println("\nFailed to connect to WiFi. Please check credentials.");
+    }
+}
+
+void sendSensorData(float rs_ro_ratio, float ppm) {
+    if (WiFi.status() == WL_CONNECTED) {
+        WiFiClient client;
+        HTTPClient http;
+        
+        Serial.println("\n--- Sending Data to Server ---");
+        Serial.printf("Server: %s\n", serverName);
+        
+        // Begin HTTP connection
+        if (http.begin(client, serverName)) {
+            http.addHeader("Content-Type", "application/json");
+            
+            // Create JSON payload
+            String jsonPayload = "{\"rs_ro_ratio\":" + String(rs_ro_ratio, 2) + 
+                               ",\"ppm\":" + String(ppm, 2) + "}";
+            
+            Serial.printf("Sending payload: %s\n", jsonPayload.c_str());
+            
+            // Send POST request
+            int httpCode = http.POST(jsonPayload);
+            
+            if (httpCode > 0) {
+                Serial.printf("HTTP Response code: %d\n", httpCode);
+                if (httpCode == HTTP_CODE_OK) {
+                    String response = http.getString();
+                    Serial.println("Server response: " + response);
+                }
+            } else {
+                Serial.printf("HTTP Request failed: %s\n", http.errorToString(httpCode).c_str());
+            }
+            
+            http.end();
+        } else {
+            Serial.println("HTTP Begin failed");
+        }
+    } else {
+        Serial.println("WiFi not connected. Cannot send data.");
+    }
+}
+
+void printWiFiStatus() {
+    Serial.println("\n--- WiFi Status ---");
+    Serial.printf("Connected to: %s\n", ssid);
+    Serial.printf("IP address: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("Signal strength (RSSI): %d dBm\n", WiFi.RSSI());
+}
