@@ -32,10 +32,10 @@ app.use((req, res, next) => {
 });
 
 // Use the gas detection route
-app.use('/api', gasDetectionRoute);
+app.use('/gas-detection', gasDetectionRoute);
 
 // Handle preflight requests
-app.options('/api/gas_detection', (req, res) => {
+app.options('/gas-detection', (req, res) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
     res.header('Access-Control-Allow-Methods', 'POST');
@@ -46,5 +46,5 @@ app.options('/api/gas_detection', (req, res) => {
 server.listen(PORT, () => {
     console.log(`HTTP Server running on http://192.168.56.1:${PORT}`);
     console.log(`WebSocket Server running on ws://192.168.56.1:${PORT}`);
-    console.log("API endpoint: http://192.168.56.1:3001/api/gas_detection");
+    console.log("API endpoint: http://192.168.56.1:3001/gas-detection");
 });

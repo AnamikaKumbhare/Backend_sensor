@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const webSocketServer = require('../hooks/useWebSocket');
 
-router.post('/gas_detection', async (req, res) => {
+router.post('/', async (req, res) => {
     try {
         const { rs_ro_ratio, ppm } = req.body;
 
